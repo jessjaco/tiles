@@ -5,7 +5,7 @@ First, note that tiles are either raster or vector based. Raster tiles are more 
 ## Raster Tiles
 There are two basic steps to create tiled raster layers. First, symbolize the raster as an RGB image. Then export to tiles.
 
-1. via Google Earth Engine
+#### Via Google Earth Engine
 
 Images can be symbolized using `visParams` or a styled-layer descriptor in xml format.
 
@@ -28,11 +28,12 @@ Export.map.toCloudStorage(
   writePublicTiles=True,
   maxZoom=12)
 ```
-I usually don't go above 12 max zoom. If testing, you can stick with 10 (or under!). Here I use an sld as they tend to be better for specific values, but are definitely harder to write. 
+I usually don't go above 12 max zoom. If testing, you can stick with 10 (or under!). I tend to use an sld as they are more flexible, but are definitely harder to write. The meters / pixel of each zoom level is described [here](https://wiki.openstreetmap.org/wiki/Zoom_levels).
 
 The output can be served directly from the cloud bucket if the tiles are made public (please note that GEE will not export to a public bucket!). Otherwise, copy them from GCS to wherever they should be served from. 
 
-2. Using R & GDAL
+#### Using R & GDAL
+
 R is good for making color ramps and creating RGB tiffs.
 
 First, you need to get a list of colors and breaks. You can do this manually, you can symbolize it in QGIS, ArcGIS, GEE, etc and just write the values down, or you can use something like the following. Here I use 10 quantile breaks and a ramp going from light yellow (#ffffcc) to dark green (#003b1e). I'd just note that this can take a while for large rasters, so you can subsample say 1e6 values from `values(some_raster)` if needed.
@@ -74,21 +75,33 @@ Once you have the rgb raster, you can use the `gdal2tiles.py` utility to export 
 
 `gdal2tiles.py -z 1-11 raster_RGB.tif`
 
-The -z argument is the zoom level. The meters / pixel of each zoom level is described [here](https://wiki.openstreetmap.org/wiki/Zoom_levels). Usually I don't go above 10, 11 or 12. You don't typically need extremely high resolution for a web map.
+The -z argument is the zoom level. Note that this option produces a few html files which you can use to check out the results.
 
-4. Other methods
+### Other methods
 
-Upload to mapbox. QGIS, ArcGIS. To be continued...
+#### QGIS
+
+You can export to tiles by selecting "Generate XYZ tiles" in the "Raster tools" section of the Processing toolbox.
+
+#### Mapbox
+
+You can upload RGB and vector files directly to mapbox and they will convert to tiles and host (see below). This sounds convenient but in my experience raster tile uploads are a pain, especially if you want to maintain transparency. See options in the R code above for something that might work.
 
 
 ## Mapbox Vector Tiles
 
 Vector tiles offer advantages over raster tiles as they can store multiple pieces of information (and in numeric or string format) for each feature. They also can be symbolized dynamically in a data-driven way. Mapbox-gl is the primary platform supporting vector tiles, though there is some support in leafet (and others??). 
 
-1. Upload to Mapbox
+#### Upload to Mapbox
 You can upload geojson (and shapefiles?) and mapbox will turn them into vector tiles which they also host. I don't use this pathway much though because there are limits on feature and file size and historically there was cost to serve tiles from mapbox (I think this changed in mapbox-gl v1).
 
-2. Use tippecanoe
-Tippecanoe is a tool to create vector tiles from geojson files. Input data _must_ be in EPSG:4326. Tippecanoe is powerful and dynamic and I use it for most tile export. 
+#### Tippecanoe
+[Tippecanoe](https://github.com/mapbox/tippecanoe) is a tool to create vector tiles from geojson files. Input data _must_ be in EPSG:4326. To get files into this format I typically use `ogr2ogr` or write to geojson from R (sf package) or python (geopandas package). I use it for most tile export, as it can handle larger data and is more customizable than a mapbox upload. Here is a typical invocation:
 
-3. Use gdal?
+`tippecanoe -e <target> -z 11 -l <layer_name> <geojson file>`
+
+#### GDAL
+
+To write: I think gdal_translate can write mbtiles? But can they be hosted? Not sure yet.
+
+
